@@ -1,0 +1,117 @@
+# =========================================================
+# 写字楼办公桌椅工位绑定管理系统 - Docker Compose
+# 端口、镜像仓库、密码全部来自 .env，禁止写死
+# 宿主机端口统一绑定 127.0.0.1，规避外网暴露与 IPv6 误绑
+# 容器名固定为 wsm_*，与项目同名，便于识别
+# =========================================================
+services:
+  mysql:
+    image: ${MYSQL_IMAGE}
+    container_name: ${COMPOSE_PROJECT_NAME}-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      TZ: ${TZ}
+    ports:
+      - "127.0.0.1:${MYSQL_PORT}:${MYSQL_INTERNAL_PORT}"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    command: >-
+      --character-set-server=${MYSQL_CHARSET}
+      --collation-server=${MYSQL_COLLATION}
+      --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - wsm_net
+
+  redis:
+    image: ${REDIS_IMAGE}
+    container_name: ${COMPOSE_PROJECT_NAME}-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
+    environment:
+      TZ: ${TZ}
+    ports:
+      - "127.0.0.1:${REDIS_PORT}:${REDIS_INTERNAL_PORT}"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - wsm_net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        # 在此处完成 DOCKER_REGISTRY 与镜像名的拼接：
+        # 若 DOCKER_REGISTRY 为空，则直接使用官方镜像名（依赖 Docker Desktop registry-mirrors 加速）
+        # 若 DOCKER_REGISTRY 非空（如 docker.xuanyuan.me/library），则前置拼接
+        BUILDER_IMAGE: ${DOCKER_REGISTRY}${MAVEN_IMAGE}
+        RUNTIME_IMAGE: ${DOCKER_REGISTRY}${JRE_IMAGE}
+    image: ${COMPOSE_PROJECT_NAME}-backend:latest
+    container_name: ${COMPOSE_PROJECT_NAME}-backend
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      SERVER_PORT: ${BACKEND_INTERNAL_PORT}
+      TZ: ${TZ}
+      MYSQL_HOST: ${COMPOSE_PROJECT_NAME}-mysql
+      MYSQL_PORT: ${MYSQL_INTERNAL_PORT}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      REDIS_HOST: ${COMPOSE_PROJECT_NAME}-redis
+      REDIS_PORT: ${REDIS_INTERNAL_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    ports:
+      - "127.0.0.1:${BACKEND_PORT}:${BACKEND_INTERNAL_PORT}"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend/uploads:/app/uploads
+    networks:
+      - wsm_net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        BUILDER_IMAGE: ${DOCKER_REGISTRY}${NODE_IMAGE}
+        RUNTIME_IMAGE: ${DOCKER_REGISTRY}${NGINX_IMAGE}
+    image: ${COMPOSE_PROJECT_NAME}-frontend:latest
+    container_name: ${COMPOSE_PROJECT_NAME}-frontend
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT}:${FRONTEND_INTERNAL_PORT}"
+    depends_on:
+      - backend
+    networks:
+      - wsm_net
+
+volumes:
+  mysql_data:
+    name: ${COMPOSE_PROJECT_NAME}-mysql-data
+  redis_data:
+    name: ${COMPOSE_PROJECT_NAME}-redis-data
+
+networks:
+  wsm_net:
+    name: ${COMPOSE_PROJECT_NAME}-net
+    driver: bridge

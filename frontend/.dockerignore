@@ -1,0 +1,19 @@
+# 前端 Docker 构建排除文件，避免无关文件进入上下文
+node_modules/
+dist/
+.vite/
+.cache/
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+README.md
+Dockerfile
+.dockerignore
+.env.local
+.env.*.local
