@@ -1,9 +1,12 @@
 package com.workspace.repository;
 
 import com.workspace.entity.OfficeFurniture;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -17,6 +20,16 @@ public interface OfficeFurnitureRepository extends JpaRepository<OfficeFurniture
     List<OfficeFurniture> findByFloorNum(Integer floorNum);
 
     List<OfficeFurniture> findByStationCode(String stationCode);
+
+    /** 搬迁执行时锁定家具行，串行化对同一家具的并发搬迁 */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select f from OfficeFurniture f where f.id = :id")
+    Optional<OfficeFurniture> findByIdForUpdate(@Param("id") Long id);
+
+    /** 搬迁执行时锁定目标工位的当前占用者，串行化对同一工位的并发搬迁 */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select f from OfficeFurniture f where f.stationCode = :stationCode and f.bindStatus = 1")
+    List<OfficeFurniture> findBoundByStationCodeForUpdate(@Param("stationCode") String stationCode);
 
     @Query("SELECT DISTINCT f.floorNum FROM OfficeFurniture f ORDER BY f.floorNum")
     List<Integer> findAllDistinctFloors();

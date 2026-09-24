@@ -10,7 +10,10 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "bind_record", indexes = {
         @Index(name = "idx_furniture_id", columnList = "furnitureId"),
+        @Index(name = "idx_relocation_batch", columnList = "relocationBatchId"),
         @Index(name = "idx_record_time", columnList = "recordTime")
+}, uniqueConstraints = {
+        @UniqueConstraint(name = "uk_relocation_item", columnNames = "relocationItemId")
 })
 public class BindRecord {
 
@@ -50,6 +53,14 @@ public class BindRecord {
 
     @Column(length = 100)
     private String operatorName;
+
+    private Long relocationBatchId;
+
+    @Column(length = 50)
+    private String relocationBatchNo;
+
+    @Column(unique = true)
+    private Long relocationItemId;
 
     @Column(nullable = false)
     @CreationTimestamp
