@@ -44,6 +44,9 @@ public interface FurnitureService {
 
     List<BindRecord> getRecordsByFurnitureCode(String furnitureCode);
 
+    Page<BindRecord> pageRecords(String furnitureCode, String operateType, String keyword,
+                                 String relocationBatchNo, Pageable pageable);
+
     void saveSpecTemplateToCache(String templateKey, Map<String, String> spec);
 
     Map<String, String> getSpecTemplateFromCache(String templateKey);

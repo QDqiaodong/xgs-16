@@ -15,6 +15,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -246,6 +247,32 @@ public class FurnitureServiceImpl implements FurnitureService {
     @Override
     public List<BindRecord> getRecordsByFurnitureCode(String furnitureCode) {
         return bindRecordRepository.findByFurnitureCodeOrderByRecordTimeDesc(furnitureCode);
+    }
+
+    @Override
+    public Page<BindRecord> pageRecords(String furnitureCode, String operateType, String keyword,
+                                        String relocationBatchNo, Pageable pageable) {
+        Specification<BindRecord> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (StrUtil.isNotBlank(furnitureCode)) {
+                predicates.add(cb.equal(root.get("furnitureCode"), furnitureCode.trim()));
+            }
+            if (StrUtil.isNotBlank(operateType)) {
+                predicates.add(cb.equal(root.get("operateType"), operateType.trim()));
+            }
+            if (StrUtil.isNotBlank(relocationBatchNo)) {
+                predicates.add(cb.equal(root.get("relocationBatchNo"), relocationBatchNo.trim()));
+            }
+            if (StrUtil.isNotBlank(keyword)) {
+                String pattern = "%" + keyword.trim() + "%";
+                predicates.add(cb.or(
+                        cb.like(root.get("oldEmployeeName"), pattern),
+                        cb.like(root.get("newEmployeeName"), pattern)
+                ));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        return bindRecordRepository.findAll(spec, pageable);
     }
 
     @Override

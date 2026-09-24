@@ -31,6 +31,12 @@ const routes = [
         meta: { title: '工位绑定管理', icon: 'Link' }
       },
       {
+        path: 'relocation',
+        name: 'RelocationDesk',
+        component: () => import('@/views/RelocationDesk.vue'),
+        meta: { title: '楼层搬迁交接台', icon: 'Switch' }
+      },
+      {
         path: 'query',
         name: 'ReverseQuery',
         component: () => import('@/views/ReverseQuery.vue'),

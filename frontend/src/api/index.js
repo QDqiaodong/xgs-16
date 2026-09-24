@@ -76,6 +76,47 @@ export function getRecordsByFurnitureCode(furnitureCode) {
   return request.get(`/record/furniture-code/${furnitureCode}`)
 }
 
+export function pageRecords(params) {
+  return request.get('/record/page', { params })
+}
+
+// ========== 楼层搬迁交接台 ==========
+export function createRelocationBatch(data) {
+  return request.post('/relocation/batch', data)
+}
+
+export function updateRelocationBatch(id, data) {
+  return request.put(`/relocation/batch/${id}`, data)
+}
+
+export function pageRelocationBatches(params) {
+  return request.get('/relocation/batch/page', { params })
+}
+
+export function getRelocationBatchDetail(id) {
+  return request.get(`/relocation/batch/${id}`)
+}
+
+export function validateRelocationBatch(id) {
+  return request.get(`/relocation/batch/${id}/validate`)
+}
+
+export function confirmRelocationBatch(id, operatorName) {
+  return request.post(`/relocation/batch/${id}/confirm`, { operatorName })
+}
+
+export function withdrawRelocationBatch(id, operatorName) {
+  return request.post(`/relocation/batch/${id}/withdraw`, { operatorName })
+}
+
+export function cancelRelocationBatch(id, operatorName) {
+  return request.post(`/relocation/batch/${id}/cancel`, { operatorName })
+}
+
+export function executeRelocationBatch(id, operatorName) {
+  return request.post(`/relocation/batch/${id}/execute`, { operatorName })
+}
+
 export function saveSpecTemplate(templateKey, spec) {
   return request.post(`/spec/${templateKey}`, spec)
 }

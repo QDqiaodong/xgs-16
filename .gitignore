@@ -29,6 +29,9 @@ yarn-error.log*
 Thumbs.db
 .idea/
 .vscode/
+.trae/
+.codex/
+.codex-fixes/
 *.iml
 *.swp
 *.swo
@@ -40,3 +43,9 @@ backend/uploads/*
 !backend/uploads/.gitkeep
 uploads/
 data/
+*.db
+*.sqlite
+*.sqlite3
+.cache/
+tmp/
+temp/

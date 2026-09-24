@@ -3,12 +3,17 @@
     <div class="page-header">
       <div>
         <h2 class="page-title">变更台账记录</h2>
-        <div class="page-subtitle">全部工位绑定、解绑、重分配变更历史</div>
+        <div class="page-subtitle">全部工位绑定、解绑、重分配及楼层搬迁批次变更历史</div>
       </div>
       <el-button @click="loadRecords">
         <el-icon><Refresh /></el-icon>刷新
       </el-button>
     </div>
+
+    <el-alert v-if="filters.relocationBatchNo" class="mb-20" type="success" show-icon :closable="false"
+      :title="`当前仅展示搬迁批次 ${filters.relocationBatchNo} 生成的台账记录（RELOCATE 类型，可通过批次号+家具ID唯一识别）`">
+      <el-button size="small" type="primary" plain @click="clearBatchFilter">查看全部台账</el-button>
+    </el-alert>
 
     <el-card class="card-shadow mb-20" :body-style="{ padding: '16px 20px' }">
       <el-form :inline="true" :model="filters" @submit.prevent>
@@ -16,11 +21,15 @@
           <el-input v-model="filters.furnitureCode" placeholder="精确查询" clearable style="width: 180px" />
         </el-form-item>
         <el-form-item label="操作类型">
-          <el-select v-model="filters.operateType" placeholder="全部类型" clearable style="width: 140px">
+          <el-select v-model="filters.operateType" placeholder="全部类型" clearable style="width: 150px">
             <el-option label="初次绑定" value="BIND" />
             <el-option label="重新绑定" value="REBIND" />
+            <el-option label="楼层搬迁" value="RELOCATE" />
             <el-option label="解绑" value="UNBIND" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="搬迁批次号">
+          <el-input v-model="filters.relocationBatchNo" placeholder="如 RL202609240001" clearable style="width: 190px" />
         </el-form-item>
         <el-form-item label="使用人">
           <el-input v-model="filters.keyword" placeholder="原/新使用人模糊查" clearable style="width: 180px" />
@@ -33,7 +42,7 @@
     </el-card>
 
     <el-card class="card-shadow" :body-style="{ padding: '16px 20px' }">
-      <el-table :data="filteredRecords" stripe v-loading="loading" style="width: 100%">
+      <el-table :data="records" stripe v-loading="loading" style="width: 100%">
         <el-table-column type="index" label="#" width="60" align="center" />
         <el-table-column prop="recordTime" label="操作时间" width="170" align="center">
           <template #default="{ row }">
@@ -52,6 +61,15 @@
             <el-tag :type="typeColor(row.operateType)" effect="light">
               {{ typeText(row.operateType) }}
             </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="搬迁批次" width="160" align="center">
+          <template #default="{ row }">
+            <el-tag v-if="row.relocationBatchNo" size="small" type="warning" effect="plain"
+              style="cursor:pointer" @click="filterByBatch(row.relocationBatchNo)">
+              {{ row.relocationBatchNo }}
+            </el-tag>
+            <span v-else class="text-muted">—</span>
           </template>
         </el-table-column>
         <el-table-column label="工位变更" min-width="200">
@@ -102,11 +120,13 @@
         <el-pagination
           v-model:current-page="page"
           v-model:page-size="size"
-          :total="filteredRecords.length"
+          :total="total"
           :page-sizes="[20, 50, 100]"
-          layout="total, sizes, prev, pager, next"
+          layout="total, sizes, prev, pager, next, jumper"
           background
           small
+          @size-change="loadRecords"
+          @current-change="loadRecords"
         />
       </div>
     </el-card>
@@ -126,7 +146,10 @@
               <el-tag size="small" :type="typeColor(item.operateType)" effect="light">
                 {{ typeText(item.operateType) }}
               </el-tag>
-              <span class="text-muted" style="font-size:12px;">操作人：{{ item.operatorName }}</span>
+              <el-tag v-if="item.relocationBatchNo" size="small" type="warning" effect="plain" class="ml-6">
+                {{ item.relocationBatchNo }}
+              </el-tag>
+              <span class="text-muted" style="font-size:12px;margin-left:auto;">操作人：{{ item.operatorName }}</span>
             </div>
             <div class="tl-line">
               <span>工位：</span>
@@ -168,70 +191,57 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, reactive, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import {
   Refresh, Search, RefreshLeft, ArrowRight, ChatDotRound
 } from '@element-plus/icons-vue'
-import { listFurniture, getRecordsByFurnitureId, getRecordsByFurnitureCode } from '@/api'
+import { pageRecords, getRecordsByFurnitureCode } from '@/api'
 
 const route = useRoute()
+const router = useRouter()
 const loading = ref(false)
-const allRecords = ref([])
+const records = ref([])
+const total = ref(0)
 const codeRecords = ref([])
 const timelineVisible = ref(false)
 
 const filters = reactive({
   furnitureCode: '',
   operateType: '',
-  keyword: ''
+  keyword: '',
+  relocationBatchNo: ''
 })
 
 const page = ref(1)
 const size = ref(20)
-
-const filteredRecords = computed(() => {
-  let list = allRecords.value
-  if (filters.furnitureCode) {
-    list = list.filter(r => r.furnitureCode === filters.furnitureCode)
-  }
-  if (filters.operateType) {
-    list = list.filter(r => r.operateType === filters.operateType)
-  }
-  if (filters.keyword) {
-    const kw = filters.keyword.toLowerCase()
-    list = list.filter(r =>
-      (r.oldEmployeeName && r.oldEmployeeName.toLowerCase().includes(kw)) ||
-      (r.newEmployeeName && r.newEmployeeName.toLowerCase().includes(kw))
-    )
-  }
-  return list
-})
 
 function formatTime(t) {
   return t ? dayjs(t).format('YYYY-MM-DD HH:mm:ss') : '—'
 }
 
 function typeText(type) {
-  return { BIND: '初次绑定', REBIND: '重新绑定', UNBIND: '解绑' }[type] || type
+  return { BIND: '初次绑定', REBIND: '重新绑定', RELOCATE: '楼层搬迁', UNBIND: '解绑' }[type] || type
 }
 
 function typeColor(type) {
-  return { BIND: 'success', REBIND: 'warning', UNBIND: 'danger' }[type] || 'info'
+  return { BIND: 'success', REBIND: 'warning', RELOCATE: 'warning', UNBIND: 'danger' }[type] || 'info'
 }
 
 async function loadRecords() {
   loading.value = true
   try {
-    const res = await listFurniture({})
-    const list = res.data || []
-    const recordPromises = list.slice(0, 500).map(f => getRecordsByFurnitureId(f.id))
-    const results = await Promise.all(recordPromises)
-    const merged = []
-    results.forEach(r => merged.push(...(r.data || [])))
-    merged.sort((a, b) => new Date(b.recordTime) - new Date(a.recordTime))
-    allRecords.value = merged
+    const res = await pageRecords({
+      furnitureCode: filters.furnitureCode || undefined,
+      operateType: filters.operateType || undefined,
+      keyword: filters.keyword || undefined,
+      relocationBatchNo: filters.relocationBatchNo || undefined,
+      page: page.value - 1,
+      size: size.value
+    })
+    records.value = res.data.content || []
+    total.value = res.data.totalElements || 0
   } finally {
     loading.value = false
   }
@@ -239,17 +249,32 @@ async function loadRecords() {
 
 function doFilter() {
   page.value = 1
+  loadRecords()
 }
 
 function resetFilter() {
   filters.furnitureCode = ''
   filters.operateType = ''
   filters.keyword = ''
+  filters.relocationBatchNo = ''
   page.value = 1
+  loadRecords()
+}
+
+function clearBatchFilter() {
+  filters.relocationBatchNo = ''
+  router.replace({ query: {} })
+  doFilter()
+}
+
+function filterByBatch(batchNo) {
+  filters.relocationBatchNo = batchNo
+  doFilter()
 }
 
 async function filterByCode(code) {
   filters.furnitureCode = code
+  doFilter()
   try {
     const res = await getRecordsByFurnitureCode(code)
     codeRecords.value = res.data || []
@@ -257,12 +282,14 @@ async function filterByCode(code) {
   } catch (e) {}
 }
 
-onMounted(async () => {
-  await loadRecords()
-  const code = route.query.code
-  if (code) {
-    filterByCode(code)
+onMounted(() => {
+  if (route.query.batchNo) {
+    filters.relocationBatchNo = String(route.query.batchNo)
   }
+  if (route.query.code) {
+    filters.furnitureCode = String(route.query.code)
+  }
+  loadRecords()
 })
 </script>
 

@@ -49,7 +49,7 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import {
-  DataAnalysis, OfficeBuilding, Files, Link, Search, Document, Collection
+  DataAnalysis, OfficeBuilding, Files, Link, Search, Document, Collection, Switch
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -61,6 +61,7 @@ const menuItems = [
   { path: '/floors', title: '楼层分组视图', icon: OfficeBuilding },
   { path: '/furniture', title: '桌椅档案管理', icon: Files },
   { path: '/bind', title: '工位绑定管理', icon: Link },
+  { path: '/relocation', title: '楼层搬迁交接台', icon: Switch },
   { path: '/query', title: '工位反向查询', icon: Search },
   { path: '/records', title: '变更台账记录', icon: Document },
   { path: '/spec-templates', title: '规格模板管理', icon: Collection }

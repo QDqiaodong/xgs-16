@@ -1,0 +1,30 @@
+spring:
+  main:
+    allow-bean-definition-overriding: true
+  datasource:
+    url: jdbc:h2:mem:ws_test;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    defer-datasource-initialization: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  # 搬迁台账幂等唯一索引（仅批次号非空时生效）的 H2 等价物：MySQL 的函数索引 H2 不支持，
+  # 用 H2 表达式索引覆盖同一语义。生产环境由 backend/sql/init.sql 中的 MySQL 函数索引保证。
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:h2-extra-index.sql
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+  data:
+    redis:
+      host: localhost
+      port: 6390
+      timeout: 1000ms
