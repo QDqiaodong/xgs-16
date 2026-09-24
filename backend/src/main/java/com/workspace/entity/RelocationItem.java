@@ -1,5 +1,6 @@
 package com.workspace.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
@@ -35,6 +36,7 @@ public class RelocationItem {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "batch_id", insertable = false, updatable = false)
+    @JsonIgnore
     private RelocationBatch batch;
 
     @Column(nullable = false)
